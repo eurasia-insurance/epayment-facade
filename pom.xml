@@ -15,7 +15,6 @@
 	<name>Epayment Lib : Facade</name>
 
 	<modules>
-		<module>client</module>
 		<module>beans</module>
 		<module>app</module>
 	</modules>
@@ -23,13 +22,14 @@
 	<properties>
 		<!-- BOMS -->
 		<javax-javaee-bom.version>7.0a</javax-javaee-bom.version>
-		<java-commons.version>1.1</java-commons.version>
+		<java-commons.version>1.2-SNAPSHOT</java-commons.version>
 		<payara-bom.version>4.1.2-2</payara-bom.version>
 		<!-- tech -->
 		<lapsa-jms-rpc.version>1.0</lapsa-jms-rpc.version>
 		<epayment-shared.version>1.0</epayment-shared.version>
-		<epayment-domain.version>4.0</epayment-domain.version>
-		<epayment-dao.version>1.1</epayment-dao.version>
+		<!-- EJB clients -->
+		<epayment-facade-client.version>1.2-SNAPSHOT</epayment-facade-client.version>
+		<epayment-dao-client.version>1.2-SNAPSHOT</epayment-dao-client.version>
 		<!-- oldies -->
 		<international-lib.version>3.3</international-lib.version>
 	</properties>
@@ -58,20 +58,7 @@
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
-			<dependency>
-				<groupId>tech.lapsa.epayment</groupId>
-				<artifactId>epayment-dao-root</artifactId>
-				<version>${epayment-dao.version}</version>
-				<type>pom</type>
-				<scope>import</scope>
-			</dependency>
 			<!-- own -->
-			<dependency>
-				<groupId>${project.groupId}</groupId>
-				<artifactId>epayment-facade-client</artifactId>
-				<version>${project.version}</version>
-				<type>jar</type>
-			</dependency>
 			<dependency>
 				<groupId>${project.groupId}</groupId>
 				<artifactId>epayment-facade</artifactId>
@@ -93,21 +80,18 @@
 			</dependency>
 			<dependency>
 				<groupId>tech.lapsa.epayment</groupId>
-				<artifactId>epayment-shared</artifactId>
-				<version>${epayment-shared.version}</version>
+				<artifactId>epayment-dao-client</artifactId>
+				<version>${epayment-dao-client.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>tech.lapsa.epayment</groupId>
-				<artifactId>epayment-domain</artifactId>
-				<version>${epayment-domain.version}</version>
+				<artifactId>epayment-facade-client</artifactId>
+				<version>${epayment-facade-client.version}</version>
 			</dependency>
-			<!-- oldies -->
 			<dependency>
-				<groupId>com.lapsa.international-lib</groupId>
-				<artifactId>international-root</artifactId>
-				<version>${international-lib.version}</version>
-				<type>pom</type>
-				<scope>import</scope>
+				<groupId>tech.lapsa.epayment</groupId>
+				<artifactId>epayment-shared</artifactId>
+				<version>${epayment-shared.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
