@@ -28,8 +28,8 @@
 		<lapsa-jms-rpc.version>1.0</lapsa-jms-rpc.version>
 		<epayment-shared.version>1.0</epayment-shared.version>
 		<!-- EJB clients -->
-		<epayment-facade-client.version>1.2</epayment-facade-client.version>
-		<epayment-dao-client.version>1.2</epayment-dao-client.version>
+		<epayment-facade-client.version>1.2.1</epayment-facade-client.version>
+		<epayment-dao-client.version>1.2.1</epayment-dao-client.version>
 		<!-- oldies -->
 		<international-lib.version>3.3</international-lib.version>
 	</properties>
