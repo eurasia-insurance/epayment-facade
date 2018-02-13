@@ -575,6 +575,8 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	MyObjects.requireNonNull(EJBException::new, payment, "payment");
 
 	try {
+	    if (invoice.isExpired())
+		invoice.pending();
 	    invoice.paidBy(payment);
 	} catch (final IllegalArgumentException e) {
 	    // it should not happens
