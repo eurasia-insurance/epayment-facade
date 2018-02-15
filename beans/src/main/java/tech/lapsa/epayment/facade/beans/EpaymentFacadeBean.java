@@ -624,9 +624,12 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    final Instant paid = payment.getCreated();
 	    final Double amount = payment.getAmount();
 	    final Currency currency = payment.getCurrency();
-	    final String ref = payment.getReference();
 	    final String invoiceNumber = invoice.getNumber();
 	    final String externalId = invoice.getExternalId();
+	    final String card = (payment instanceof QazkomPayment)
+		    ? ((QazkomPayment) payment).getCardNumber()
+		    : null;
+	    final String ref = payment.getReference();
 
 	    final InvoiceHasPaidJmsEvent ev = new InvoiceHasPaidJmsEvent();
 	    ev.setAmount(amount);
@@ -635,6 +638,7 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    ev.setInvoiceNumber(invoiceNumber);
 	    ev.setMethod(methodName);
 	    ev.setReferenceNumber(ref);
+	    ev.setPaymentCard(card);
 	    ev.setExternalId(externalId);
 
 	    invoiceHasPaidEventNotificatorClient.eventNotify(ev);
