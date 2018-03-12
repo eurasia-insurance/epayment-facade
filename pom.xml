@@ -36,6 +36,14 @@
 
 	<dependencyManagement>
 		<dependencies>
+			<!-- v1.2.3 -->
+			<!-- to be removed on merge >> -->
+			<dependency>
+				<groupId>tech.lapsa.epayment</groupId>
+				<artifactId>epayment-qazkom-commons</artifactId>
+				<version>1.0.1</version>
+			</dependency>
+			<!-- to be removed on merge << -->
 			<!-- BOMS -->
 			<dependency>
 				<groupId>tech.lapsa.javax</groupId>
