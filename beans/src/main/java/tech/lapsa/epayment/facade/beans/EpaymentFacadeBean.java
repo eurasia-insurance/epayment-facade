@@ -148,9 +148,10 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    final Double paidAmount,
 	    final Currency paidCurency,
 	    final Instant paidInstant,
-	    final String paidReference) throws IllegalArgument, IllegalState, InvoiceNotFound {
+	    final String paidReference, 
+	    final String payerName) throws IllegalArgument, IllegalState, InvoiceNotFound {
 	try {
-	    _completeWithUnknownPayment(invoiceNumber, paidAmount, paidCurency, paidInstant, paidReference);
+	    _completeWithUnknownPayment(invoiceNumber, paidAmount, paidCurency, paidInstant, paidReference, payerName);
 	} catch (final IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
 	} catch (final IllegalStateException e) {
@@ -325,7 +326,7 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
     }
 
     private void _completeWithUnknownPayment(final String invoiceNumber, final Double paidAmount,
-	    final Currency paidCurency, final Instant paidInstant, final String paidReference)
+	    final Currency paidCurency, final Instant paidInstant, final String paidReference, final String payerName)
 	    throws IllegalArgumentException, IllegalStateException, InvoiceNotFound {
 
 	MyStrings.requireNonEmpty(invoiceNumber, "invoiceNumber");
@@ -337,6 +338,7 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 		.withCurrency(paidCurency) //
 		.withCreationInstant(MyOptionals.of(paidInstant)) //
 		.withReferenceNumber(MyOptionals.of(paidReference)) //
+		.withPayerName(MyOptionals.of(payerName)) //
 		.build();
 
 	final UnknownPayment p;
@@ -629,6 +631,7 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    final String card = (payment instanceof QazkomPayment)
 		    ? ((QazkomPayment) payment).getCardNumber()
 		    : null;
+	    final String payerName = payment.getPayerName();
 	    final String ref = payment.getReference();
 
 	    final InvoiceHasPaidJmsEvent ev = new InvoiceHasPaidJmsEvent();
@@ -640,6 +643,7 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    ev.setReferenceNumber(ref);
 	    ev.setPaymentCard(card);
 	    ev.setExternalId(externalId);
+	    ev.setPayerName(payerName);
 
 	    invoiceHasPaidEventNotificatorClient.eventNotify(ev);
 	}
