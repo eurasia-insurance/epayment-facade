@@ -148,7 +148,7 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    final Double paidAmount,
 	    final Currency paidCurency,
 	    final Instant paidInstant,
-	    final String paidReference, 
+	    final String paidReference,
 	    final String payerName) throws IllegalArgument, IllegalState, InvoiceNotFound {
 	try {
 	    _completeWithUnknownPayment(invoiceNumber, paidAmount, paidCurency, paidInstant, paidReference, payerName);
@@ -333,7 +333,7 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	MyNumbers.requireNonZero(paidAmount, "paidAmount");
 	MyObjects.requireNonNull(paidCurency, "paidCurency");
 
-	final UnknownPayment temp = UnknownPayment.builder() //
+	final UnknownPayment p1 = UnknownPayment.builder() //
 		.withAmount(paidAmount) //
 		.withCurrency(paidCurency) //
 		.withCreationInstant(MyOptionals.of(paidInstant)) //
@@ -341,16 +341,16 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 		.withPayerName(MyOptionals.of(payerName)) //
 		.build();
 
-	final UnknownPayment p;
+	final UnknownPayment p2;
 	try {
-	    p = paymentDAO.save(temp);
+	    p2 = paymentDAO.save(p1);
 	} catch (final IllegalArgument e) {
 	    // it should not happens
 	    throw new EJBException(e.getMessage());
 	}
 
-	final Invoice i = _invoiceByNumber(invoiceNumber);
-	_invoiceHasPaidBy(i, p);
+	final Invoice i1 = _invoiceByNumber(invoiceNumber);
+	_invoiceHasPaidBy(i1, p2);
     }
 
     private void _completeWithQazkomPayment(final String postbackXml)
@@ -371,9 +371,9 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    throw new EJBException(e.getMessage());
 	}
 
-	final QazkomPayment np = builder.build();
+	final QazkomPayment p1 = builder.build();
 
-	final String orderNumber = np.getOrderNumber();
+	final String orderNumber = p1.getOrderNumber();
 	MyStrings.requireNonEmpty(orderNumber, "orderNumber");
 
 	try {
@@ -385,19 +385,19 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    throw new EJBException(e.getMessage());
 	}
 
-	final QazkomPayment p;
+	final QazkomPayment p2;
 	try {
-	    p = qpDAO.save(np);
+	    p2 = qpDAO.save(p1);
 	} catch (final IllegalArgument e) {
 	    // it should not happens
 	    throw new EJBException(e.getMessage());
 	}
 
-	logger.INFO.log("QazkomPayment OK - '%1$s'", p);
+	logger.INFO.log("QazkomPayment OK - '%1$s'", p2);
 
-	final QazkomOrder o;
+	final QazkomOrder o1;
 	try {
-	    o = qoDAO.getByNumber(orderNumber);
+	    o1 = qoDAO.getByNumber(orderNumber);
 	} catch (final IllegalArgument e) {
 	    // it should not happens
 	    throw new EJBException(e.getMessage());
@@ -405,10 +405,10 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    throw MyExceptions.illegalArgumentFormat("No QazkomOrder found or reference is invlaid - '%1$s'",
 		    orderNumber);
 	}
-	logger.INFO.log("QazkomOrder OK - '%1$s'", o);
+	logger.INFO.log("QazkomOrder OK - '%1$s'", o1);
 
 	try {
-	    o.paidBy(p);
+	    o1.paidBy(p2);
 	} catch (final IllegalArgumentException e) {
 	    // it should not happens
 	    throw new EJBException(e.getMessage());
@@ -420,21 +420,17 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    throw e.getRuntime();
 	}
 
+	final QazkomOrder o2;
 	try {
-	    qoDAO.save(o);
-	} catch (final IllegalArgument e) {
-	    // it should not happens
-	    throw new EJBException(e.getMessage());
-	}
-	try {
-	    qpDAO.save(p);
+	    o2 = qoDAO.save(o1);
 	} catch (final IllegalArgument e) {
 	    // it should not happens
 	    throw new EJBException(e.getMessage());
 	}
 
-	final Invoice i = o.getForInvoice();
-	_invoiceHasPaidBy(i, p);
+	final Invoice i = o2.getForInvoice();
+	final Payment p3 = o2.getPayment();
+	_invoiceHasPaidBy(i, p3);
     }
 
     private PaymentMethod _qazkomHttpMethod(final URI postbackURI,
@@ -568,18 +564,18 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
     @JmsDestination(EpaymentDestinations.INVOICE_HAS_PAID)
     private JmsEventNotificatorClient<InvoiceHasPaidJmsEvent> invoiceHasPaidEventNotificatorClient;
 
-    private void _invoiceHasPaidBy(final Invoice invoice, final Payment payment)
+    private void _invoiceHasPaidBy(final Invoice i1, final Payment p1)
 	    throws IllegalArgumentException, IllegalStateException {
 
 	// it should not happens
-	MyObjects.requireNonNull(EJBException::new, invoice, "invoice");
+	MyObjects.requireNonNull(EJBException::new, i1, "invoice");
 	// it should not happens
-	MyObjects.requireNonNull(EJBException::new, payment, "payment");
+	MyObjects.requireNonNull(EJBException::new, p1, "payment");
 
 	try {
-	    if (invoice.isExpired())
-		invoice.pending();
-	    invoice.paidBy(payment);
+	    if (i1.isExpired())
+		i1.pending();
+	    i1.paidBy(p1);
 	} catch (final IllegalArgumentException e) {
 	    // it should not happens
 	    throw new EJBException(e.getMessage());
@@ -591,29 +587,24 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    throw e.getRuntime();
 	}
 
+	final Invoice i2;
 	try {
-	    invoiceDAO.save(invoice);
-	} catch (final IllegalArgument e) {
-	    // it should not happens
-	    throw new EJBException(e.getMessage());
-	}
-	try {
-	    paymentDAO.save(payment);
+	    i2 = invoiceDAO.save(i1);
 	} catch (final IllegalArgument e) {
 	    // it should not happens
 	    throw new EJBException(e.getMessage());
 	}
 
-	logger.INFO.log("Ivoice has paid successfuly '%1$s'", invoice);
+	logger.INFO.log("Ivoice has paid successfuly '%1$s'", i2);
 
-	if (invoice.optionalConsumerEmail().isPresent()) {
-	    invoice.unlazy();
+	if (i2.optionalConsumerEmail().isPresent()) {
+	    i2.unlazy();
 	    try {
 		notifications.send(Notification.builder() //
 			.withChannel(NotificationChannel.EMAIL) //
 			.withEvent(NotificationEventType.PAYMENT_SUCCESS) //
 			.withRecipient(NotificationRecipientType.REQUESTER) //
-			.forEntity(invoice) //
+			.forEntity(i2) //
 			.build());
 	    } catch (final IllegalArgument e) {
 		// it should not happens
@@ -622,17 +613,17 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	}
 
 	{
-	    final String methodName = payment.getMethod().regular();
-	    final Instant paid = payment.getCreated();
-	    final Double amount = payment.getAmount();
-	    final Currency currency = payment.getCurrency();
-	    final String invoiceNumber = invoice.getNumber();
-	    final String externalId = invoice.getExternalId();
-	    final String card = (payment instanceof QazkomPayment)
-		    ? ((QazkomPayment) payment).getCardNumber()
+	    final String methodName = p1.getMethod().regular();
+	    final Instant paid = p1.getCreated();
+	    final Double amount = p1.getAmount();
+	    final Currency currency = p1.getCurrency();
+	    final String invoiceNumber = i1.getNumber();
+	    final String externalId = i1.getExternalId();
+	    final String card = (p1 instanceof QazkomPayment)
+		    ? ((QazkomPayment) p1).getCardNumber()
 		    : null;
-	    final String payerName = payment.getPayerName();
-	    final String ref = payment.getReference();
+	    final String payerName = p1.getPayerName();
+	    final String ref = p1.getReference();
 
 	    final InvoiceHasPaidJmsEvent ev = new InvoiceHasPaidJmsEvent();
 	    ev.setAmount(amount);
