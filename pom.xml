@@ -9,7 +9,7 @@
 
 	<groupId>tech.lapsa.epayment</groupId>
 	<artifactId>epayment-facade-root</artifactId>
-	<version>1.2.5-SNAPSHOT</version>
+	<version>1.2.5</version>
 	<packaging>pom</packaging>
 
 	<name>Epayment Lib : Facade</name>
@@ -107,7 +107,7 @@
 	<scm>
 		<connection>scm:git:https://gitlab.lapsa.tech/lapsa/epayment/facade.git</connection>
 		<developerConnection>scm:git:https://gitlab.lapsa.tech/lapsa/epayment/facade.git</developerConnection>
-		<tag>HEAD</tag>
+		<tag>v1.2.5</tag>
 	</scm>
 
 	<issueManagement>
