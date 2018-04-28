@@ -15,11 +15,13 @@ import javax.ejb.TransactionAttribute;
 import javax.ejb.TransactionAttributeType;
 import javax.inject.Inject;
 
+import tech.lapsa.epayment.dao.BankDAO.BankDAORemote;
 import tech.lapsa.epayment.dao.InvoiceDAO.InvoiceDAORemote;
 import tech.lapsa.epayment.dao.PaymentDAO.PaymentDAORemote;
 import tech.lapsa.epayment.dao.QazkomErrorDAO.QazkomErrorDAORemote;
 import tech.lapsa.epayment.dao.QazkomOrderDAO.QazkomOrderDAORemote;
 import tech.lapsa.epayment.dao.QazkomPaymentDAO.QazkomPaymentDAORemote;
+import tech.lapsa.epayment.domain.Bank;
 import tech.lapsa.epayment.domain.Invoice;
 import tech.lapsa.epayment.domain.Invoice.InvoiceBuilder;
 import tech.lapsa.epayment.domain.NonUniqueNumberException;
@@ -353,6 +355,19 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	_invoiceHasPaidBy(i1, p2);
     }
 
+    @EJB
+    private BankDAORemote bankDAO;
+
+    private Bank fetchBankWithCardMasked(final String cardMasked) {
+	try {
+	    final String bin = cardMasked.substring(0, 6);
+	    final Bank bank = bankDAO.getByBIN(bin);
+	    return bank;
+	} catch (Exception e) {
+	    return null;
+	}
+    }
+
     private void _completeWithQazkomPayment(final String postbackXml)
 	    throws IllegalArgumentException, IllegalStateException {
 
@@ -365,7 +380,8 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	try {
 	    builder
 		    .fromRawXml(postbackXml)
-		    .withBankCertificate(qazkomSettings.QAZKOM_BANK_CERTIFICATE);
+		    .withBankCertificate(qazkomSettings.QAZKOM_BANK_CERTIFICATE)
+		    .withCardIssuingBankFetcher(this::fetchBankWithCardMasked);
 	} catch (final IllegalArgumentException e) {
 	    // it should not happens
 	    throw new EJBException(e.getMessage());
@@ -619,9 +635,18 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    final Currency currency = p1.getCurrency();
 	    final String invoiceNumber = i1.getNumber();
 	    final String externalId = i1.getExternalId();
-	    final String card = (p1 instanceof QazkomPayment)
-		    ? ((QazkomPayment) p1).getCardNumber()
-		    : null;
+
+	    final String card = MyOptionals.of(p1) //
+		    .map(MyObjects.castOrNull(QazkomPayment.class)) //
+		    .map(QazkomPayment::getCardNumber) //
+		    .orElse(null);
+
+	    final String cardBank = MyOptionals.of(p1) //
+		    .map(MyObjects.castOrNull(QazkomPayment.class)) //
+		    .map(QazkomPayment::getCardIssuingBank) //
+		    .map(Bank::getCode) //
+		    .orElse(null);
+
 	    final String payerName = p1.getPayerName();
 	    final String ref = p1.getReference();
 
@@ -633,6 +658,7 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    ev.setMethod(methodName);
 	    ev.setReferenceNumber(ref);
 	    ev.setPaymentCard(card);
+	    ev.setPaymentCardBank(cardBank);
 	    ev.setExternalId(externalId);
 	    ev.setPayerName(payerName);
 
