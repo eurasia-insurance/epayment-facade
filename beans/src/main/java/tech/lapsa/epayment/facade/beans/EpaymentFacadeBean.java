@@ -635,9 +635,18 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    final Currency currency = p1.getCurrency();
 	    final String invoiceNumber = i1.getNumber();
 	    final String externalId = i1.getExternalId();
-	    final String card = (p1 instanceof QazkomPayment)
-		    ? ((QazkomPayment) p1).getCardNumber()
-		    : null;
+
+	    final String card = MyOptionals.of(p1) //
+		    .map(MyObjects.castOrNull(QazkomPayment.class)) //
+		    .map(QazkomPayment::getCardNumber) //
+		    .orElse(null);
+
+	    final String cardBank = MyOptionals.of(p1) //
+		    .map(MyObjects.castOrNull(QazkomPayment.class)) //
+		    .map(QazkomPayment::getCardIssuingBank) //
+		    .map(Bank::getCode) //
+		    .orElse(null);
+
 	    final String payerName = p1.getPayerName();
 	    final String ref = p1.getReference();
 
@@ -649,6 +658,7 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    ev.setMethod(methodName);
 	    ev.setReferenceNumber(ref);
 	    ev.setPaymentCard(card);
+	    ev.setPaymentCardBank(cardBank);
 	    ev.setExternalId(externalId);
 	    ev.setPayerName(payerName);
 
