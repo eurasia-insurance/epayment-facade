@@ -629,7 +629,7 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	}
 
 	{
-	    final String methodName = p1.getMethod().regular();
+	    final String methodName = p1.getMethod().name();
 	    final Instant paid = p1.getCreated();
 	    final Double amount = p1.getAmount();
 	    final Currency currency = p1.getCurrency();
