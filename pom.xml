@@ -105,9 +105,9 @@
 	</dependencyManagement>
 
 	<scm>
-		<connection>scm:git:https://gitlab.lapsa.tech/lapsa/epayment/facade.git</connection>
-		<developerConnection>scm:git:https://gitlab.lapsa.tech/lapsa/epayment/facade.git</developerConnection>
-		<tag>v1.2.6</tag>
+		<connection>scm:git:https://github.com/eurasia-insurance/epayment-facade.git</connection>
+		<developerConnection>scm:git:https://github.com/eurasia-insurance/epayment-facade.git</developerConnection>
+		<tag>HEAD</tag>
 	</scm>
 
 	<issueManagement>
