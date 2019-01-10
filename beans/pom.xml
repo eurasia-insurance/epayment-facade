@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>tech.lapsa.epayment</groupId>
 		<artifactId>epayment-facade-root</artifactId>
-		<version>CURRENT-SNAPSHOT</version>
+		<version>20190110</version>
 	</parent>
 
 	<artifactId>epayment-facade</artifactId>
