@@ -136,6 +136,19 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public void markInvoiceAsPaid(final String invoiceNumber,
+	    final Instant paymentInstant) throws IllegalArgument, IllegalState, InvoiceNotFound {
+	try {
+	    _unknwownPaymentAsIs(invoiceNumber, paymentInstant);
+	} catch (final IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	} catch (final IllegalStateException e) {
+	    throw new IllegalState(e);
+	}
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
     public Invoice invoiceAccept(final InvoiceBuilder builder) throws IllegalArgument {
 	try {
 	    return _invoiceAccept(builder);
@@ -153,7 +166,22 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    final String paidReference,
 	    final String payerName) throws IllegalArgument, IllegalState, InvoiceNotFound {
 	try {
-	    _completeWithUnknownPayment(invoiceNumber, paidAmount, paidCurency, paidInstant, paidReference, payerName);
+	    final Invoice i = _unknwownPayment(invoiceNumber, paidAmount, paidCurency, paidInstant, paidReference,
+		    payerName);
+	    _notifyExternalsAboutPaymentArrived(i);
+	} catch (final IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	} catch (final IllegalStateException e) {
+	    throw new IllegalState(e);
+	}
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public void completeWithQazkomPayment(final String postbackXml) throws IllegalArgument, IllegalState {
+	try {
+	    final Invoice i = _qazkomPayment(postbackXml);
+	    _notifyExternalsAboutPaymentArrived(i);
 	} catch (final IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
 	} catch (final IllegalStateException e) {
@@ -180,18 +208,6 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    return _processQazkomFailure(failureXml);
 	} catch (final IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
-	}
-    }
-
-    @Override
-    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public void completeWithQazkomPayment(final String postbackXml) throws IllegalArgument, IllegalState {
-	try {
-	    _completeWithQazkomPayment(postbackXml);
-	} catch (final IllegalArgumentException e) {
-	    throw new IllegalArgument(e);
-	} catch (final IllegalStateException e) {
-	    throw new IllegalState(e);
 	}
     }
 
@@ -327,13 +343,41 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	}
     }
 
-    private void _completeWithUnknownPayment(final String invoiceNumber, final Double paidAmount,
-	    final Currency paidCurency, final Instant paidInstant, final String paidReference, final String payerName)
-	    throws IllegalArgumentException, IllegalStateException, InvoiceNotFound {
+    private Invoice _unknwownPaymentAsIs(final String invoiceNumber,
+	    final Instant paymentInstant) throws IllegalArgumentException, InvoiceNotFound {
+
+	MyStrings.requireNonEmpty(invoiceNumber, "invoiceNumber");
+	MyObjects.requireNonNull(paymentInstant, "paymentInstant");
+
+	final Invoice i1 = _invoiceByNumber(invoiceNumber);
+
+	final UnknownPayment p1 = UnknownPayment.forInvoice(i1) //
+		.withCreationInstant(paymentInstant) //
+		.build();
+
+	final UnknownPayment p2;
+	try {
+	    p2 = paymentDAO.save(p1);
+	} catch (final IllegalArgument e) {
+	    // it should not happens
+	    throw new EJBException(e.getMessage());
+	}
+
+	return _invoiceHasPaidBy(i1, p2);
+    }
+
+    private Invoice _unknwownPayment(final String invoiceNumber,
+	    final Double paidAmount,
+	    final Currency paidCurency,
+	    final Instant paidInstant,
+	    final String paidReference,
+	    final String payerName) throws IllegalArgumentException, InvoiceNotFound {
 
 	MyStrings.requireNonEmpty(invoiceNumber, "invoiceNumber");
 	MyNumbers.requireNonZero(paidAmount, "paidAmount");
 	MyObjects.requireNonNull(paidCurency, "paidCurency");
+
+	final Invoice i1 = _invoiceByNumber(invoiceNumber);
 
 	final UnknownPayment p1 = UnknownPayment.builder() //
 		.withAmount(paidAmount) //
@@ -351,24 +395,10 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    throw new EJBException(e.getMessage());
 	}
 
-	final Invoice i1 = _invoiceByNumber(invoiceNumber);
-	_invoiceHasPaidBy(i1, p2);
+	return _invoiceHasPaidBy(i1, p2);
     }
 
-    @EJB
-    private BankDAORemote bankDAO;
-
-    private Bank fetchBankWithCardMasked(final String cardMasked) {
-	try {
-	    final String bin = cardMasked.substring(0, 6);
-	    final Bank bank = bankDAO.getByBIN(bin);
-	    return bank;
-	} catch (Exception e) {
-	    return null;
-	}
-    }
-
-    private void _completeWithQazkomPayment(final String postbackXml)
+    private Invoice _qazkomPayment(final String postbackXml)
 	    throws IllegalArgumentException, IllegalStateException {
 
 	MyStrings.requireNonEmpty(postbackXml, "postbackXml");
@@ -446,7 +476,58 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 
 	final Invoice i = o2.getForInvoice();
 	final Payment p3 = o2.getPayment();
-	_invoiceHasPaidBy(i, p3);
+	return _invoiceHasPaidBy(i, p3);
+    }
+
+    private Invoice _invoiceHasPaidBy(final Invoice i1, final Payment p1)
+	    throws IllegalArgumentException, IllegalStateException {
+
+	// it should not happens
+	MyObjects.requireNonNull(EJBException::new, i1, "invoice");
+	// it should not happens
+	MyObjects.requireNonNull(EJBException::new, p1, "payment");
+
+	try {
+	    if (i1.isExpired())
+		i1.pending();
+	    i1.paidBy(p1);
+	} catch (final IllegalArgumentException e) {
+	    // it should not happens
+	    throw new EJBException(e.getMessage());
+	} catch (final IllegalArgument e) {
+	    // payment is inconsistent
+	    throw e.getRuntime();
+	} catch (final IllegalState e) {
+	    // invoice can't be paid
+	    throw e.getRuntime();
+	}
+
+	final Invoice i2;
+	try {
+	    i2 = invoiceDAO.save(i1);
+	} catch (final IllegalArgument e) {
+	    // it should not happens
+	    throw new EJBException(e.getMessage());
+	}
+
+	logger.INFO.log("Ivoice has paid successfuly '%1$s'", i2);
+
+	if (i2.optionalConsumerEmail().isPresent()) {
+	    i2.unlazy();
+	    try {
+		notifications.send(Notification.builder() //
+			.withChannel(NotificationChannel.EMAIL) //
+			.withEvent(NotificationEventType.PAYMENT_SUCCESS) //
+			.withRecipient(NotificationRecipientType.REQUESTER) //
+			.forEntity(i2) //
+			.build());
+	    } catch (final IllegalArgument e) {
+		// it should not happens
+		throw new EJBException(e.getMessage());
+	    }
+	}
+
+	return i2;
     }
 
     private PaymentMethod _qazkomHttpMethod(final URI postbackURI,
@@ -580,75 +661,30 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
     @JmsDestination(EpaymentDestinations.INVOICE_HAS_PAID)
     private JmsEventNotificatorClient<InvoiceHasPaidJmsEvent> invoiceHasPaidEventNotificatorClient;
 
-    private void _invoiceHasPaidBy(final Invoice i1, final Payment p1)
-	    throws IllegalArgumentException, IllegalStateException {
+    private Invoice _notifyExternalsAboutPaymentArrived(final Invoice invoice) {
+	if (invoice.isPaid()) {
+	    final Payment payment = invoice.getPayment();
 
-	// it should not happens
-	MyObjects.requireNonNull(EJBException::new, i1, "invoice");
-	// it should not happens
-	MyObjects.requireNonNull(EJBException::new, p1, "payment");
+	    final String methodName = payment.getMethod().name();
+	    final Instant paid = payment.getCreated();
+	    final Double amount = payment.getAmount();
+	    final Currency currency = payment.getCurrency();
+	    final String invoiceNumber = invoice.getNumber();
+	    final String externalId = invoice.getExternalId();
 
-	try {
-	    if (i1.isExpired())
-		i1.pending();
-	    i1.paidBy(p1);
-	} catch (final IllegalArgumentException e) {
-	    // it should not happens
-	    throw new EJBException(e.getMessage());
-	} catch (final IllegalArgument e) {
-	    // payment is inconsistent
-	    throw e.getRuntime();
-	} catch (final IllegalState e) {
-	    // invoice can't be paid
-	    throw e.getRuntime();
-	}
-
-	final Invoice i2;
-	try {
-	    i2 = invoiceDAO.save(i1);
-	} catch (final IllegalArgument e) {
-	    // it should not happens
-	    throw new EJBException(e.getMessage());
-	}
-
-	logger.INFO.log("Ivoice has paid successfuly '%1$s'", i2);
-
-	if (i2.optionalConsumerEmail().isPresent()) {
-	    i2.unlazy();
-	    try {
-		notifications.send(Notification.builder() //
-			.withChannel(NotificationChannel.EMAIL) //
-			.withEvent(NotificationEventType.PAYMENT_SUCCESS) //
-			.withRecipient(NotificationRecipientType.REQUESTER) //
-			.forEntity(i2) //
-			.build());
-	    } catch (final IllegalArgument e) {
-		// it should not happens
-		throw new EJBException(e.getMessage());
-	    }
-	}
-
-	{
-	    final String methodName = p1.getMethod().name();
-	    final Instant paid = p1.getCreated();
-	    final Double amount = p1.getAmount();
-	    final Currency currency = p1.getCurrency();
-	    final String invoiceNumber = i1.getNumber();
-	    final String externalId = i1.getExternalId();
-
-	    final String card = MyOptionals.of(p1) //
+	    final String card = MyOptionals.of(payment) //
 		    .map(MyObjects.castOrNull(QazkomPayment.class)) //
 		    .map(QazkomPayment::getCardNumber) //
 		    .orElse(null);
 
-	    final String cardBank = MyOptionals.of(p1) //
+	    final String cardBank = MyOptionals.of(payment) //
 		    .map(MyObjects.castOrNull(QazkomPayment.class)) //
 		    .map(QazkomPayment::getCardIssuingBank) //
 		    .map(Bank::getCode) //
 		    .orElse(null);
 
-	    final String payerName = p1.getPayerName();
-	    final String ref = p1.getReference();
+	    final String payerName = payment.getPayerName();
+	    final String ref = payment.getReference();
 
 	    final InvoiceHasPaidJmsEvent ev = new InvoiceHasPaidJmsEvent();
 	    ev.setAmount(amount);
@@ -663,6 +699,20 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	    ev.setPayerName(payerName);
 
 	    invoiceHasPaidEventNotificatorClient.eventNotify(ev);
+	}
+	return invoice;
+    }
+
+    @EJB
+    private BankDAORemote bankDAO;
+
+    private Bank fetchBankWithCardMasked(final String cardMasked) {
+	try {
+	    final String bin = cardMasked.substring(0, 6);
+	    final Bank bank = bankDAO.getByBIN(bin);
+	    return bank;
+	} catch (Exception e) {
+	    return null;
 	}
     }
 }
