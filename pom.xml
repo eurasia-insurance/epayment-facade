@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>tech.lapsa.maven</groupId>
 		<artifactId>maven-general</artifactId>
-		<version>20190119r3</version>
+		<version>20190126r1</version>
 	</parent>
 
 	<groupId>tech.lapsa.epayment</groupId>
