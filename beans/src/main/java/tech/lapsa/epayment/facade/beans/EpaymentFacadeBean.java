@@ -136,6 +136,18 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public void cancelPayment(final String invoiceNumber, String reason) throws IllegalArgument, IllegalState, InvoiceNotFound {
+	try {
+	    _cancelPayment(invoiceNumber, reason);
+	} catch (final IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	} catch (final IllegalStateException e) {
+	    throw new IllegalState(e);
+	}
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
     public void markInvoiceAsPaid(final String invoiceNumber,
 	    final Instant paymentInstant) throws IllegalArgument, IllegalState, InvoiceNotFound {
 	try {
@@ -322,6 +334,30 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	return i;
     }
 
+    private void _cancelPayment(String invoiceNumber, String reason) throws IllegalArgumentException, IllegalStateException, InvoiceNotFound {
+
+	MyStrings.requireNonEmpty(invoiceNumber, "invoiceNumber");
+	MyStrings.requireNonEmpty(reason, "reason");
+
+	final Invoice i = _invoiceByNumber(invoiceNumber);
+
+	try {
+	    i.requirePaid();
+	    i.getPayment().cancel(reason);
+	} catch (final IllegalState e) {
+	    throw e.getRuntime();
+	} catch (IllegalArgument e) {
+	    throw e.getRuntime();
+	}
+	try {
+	    invoiceDAO.save(i);
+	} catch (final IllegalArgument e) {
+	    // it should not happens
+	    throw new EJBException(e.getMessage());
+	}
+    }
+
+
     private void _expireInvoice(final String invoiceNumber)
 	    throws IllegalArgumentException, IllegalStateException, InvoiceNotFound {
 
@@ -475,11 +511,11 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 	}
 
 	final Invoice i = o2.getForInvoice();
-	final Payment p3 = o2.getPayment();
+	final QazkomPayment p3 = o2.getPayment();
 	return _invoiceHasPaidBy(i, p3);
     }
 
-    private Invoice _invoiceHasPaidBy(final Invoice i1, final Payment p1)
+    private Invoice _invoiceHasPaidBy(final Invoice i1, final Payment<?> p1)
 	    throws IllegalArgumentException, IllegalStateException {
 
 	// it should not happens
@@ -663,7 +699,7 @@ public class EpaymentFacadeBean implements EpaymentFacadeLocal, EpaymentFacadeRe
 
     private Invoice _notifyExternalsAboutPaymentArrived(final Invoice invoice) {
 	if (invoice.isPaid()) {
-	    final Payment payment = invoice.getPayment();
+	    final Payment<?> payment = invoice.getPayment();
 
 	    final String methodName = payment.getMethod().name();
 	    final Instant paid = payment.getCreated();
