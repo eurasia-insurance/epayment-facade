@@ -21,17 +21,17 @@
 
 	<properties>
 		<!-- BOMS -->
-		<javax-javaee-bom.version>CURRENT-SNAPSHOT</javax-javaee-bom.version>
-		<java-commons.version>CURRENT-SNAPSHOT</java-commons.version>
-		<payara-bom.version>CURRENT-SNAPSHOT</payara-bom.version>
+		<javax-javaee-bom.version>20190317r6</javax-javaee-bom.version>
+		<java-commons.version>20190317r6</java-commons.version>
+		<payara-bom.version>20190317r6</payara-bom.version>
 		<!-- tech -->
-		<lapsa-jms-rpc.version>CURRENT-SNAPSHOT</lapsa-jms-rpc.version>
-		<epayment-shared.version>CURRENT-SNAPSHOT</epayment-shared.version>
+		<lapsa-jms-rpc.version>20190317r6</lapsa-jms-rpc.version>
+		<epayment-shared.version>20190317r6</epayment-shared.version>
 		<!-- EJB clients -->
-		<epayment-facade-client.version>CURRENT-SNAPSHOT</epayment-facade-client.version>
-		<epayment-dao-client.version>CURRENT-SNAPSHOT</epayment-dao-client.version>
+		<epayment-facade-client.version>20190317r6</epayment-facade-client.version>
+		<epayment-dao-client.version>20190317r6</epayment-dao-client.version>
 		<!-- oldies -->
-		<international-lib.version>CURRENT-SNAPSHOT</international-lib.version>
+		<international-lib.version>20190317r6</international-lib.version>
 	</properties>
 
 	<dependencyManagement>
